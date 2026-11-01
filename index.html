@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="es" class="h-full bg-slate-50">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generador de Reportes Fotográficos de Obra</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        steel: {
+                            50: '#f4f6f8',
+                            100: '#e5e9ee',
+                            200: '#cfd7e3',
+                            500: '#476385',
+                            600: '#384e6b',
+                            700: '#2b3d54',
+                            800: '#1e2b3c',
+                            900: '#0f172a',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- FontAwesome icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+
+        /* Estilos específicos para la impresión (Generación de PDF) */
+        @media print {
+            body {
+                background: white !important;
+                color: black !important;
+                font-size: 11pt;
+            }
+            .no-print {
+                display: none !important;
+            }
+            .print-only {
+                display: block !important;
+            }
+            .page-break {
+                page-break-before: always;
+                break-before: page;
+            }
+            .avoid-break {
+                page-break-inside: avoid;
+                break-inside: avoid;
+            }
+            .sheet {
+                box-shadow: none !important;
+                margin: 0 !important;
+                width: 100% !important;
+                max-width: 100% !important;
+                padding: 0 !important;
+                border: none !important;
+            }
+            @page {
+                size: A4 portrait;
+                margin: 12mm;
+            }
+        }
+
+        /* Simulación visual de hojaldrado A4 en pantalla */
+        .sheet-preview {
+            aspect-ratio: 1 / 1.4142; /* Ratio de A4 */
+        }
+    </style>
+</head>
+<body class="min-h-full flex flex-col text-slate-800 bg-slate-100 antialiased">
+
+    <!-- Navbar superior (no-print) -->
+    <header class="no-print sticky top-0 z-40 bg-steel-900 text-white shadow-md border-b border-steel-700">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="p-2 bg-blue-600 rounded-lg shadow-sm">
+                    <i class="fa-solid fa-camera-retro text-xl text-white"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-lg leading-tight">DIAR <span class="text-blue-400 font-normal text-xs uppercase tracking-wider">Web</span></h1>
+                    <p class="text-xs text-slate-400">Reporte Fotográfico DIAR</p>
+                </div>
+            </div>
+            
+            <div class="flex items-center space-x-2 sm:space-x-4">
+                <button onclick="clearDraft()" title="Limpiar todo el borrador" class="text-slate-300 hover:text-red-400 hover:bg-steel-800 px-3 py-2 rounded-lg text-sm transition font-medium flex items-center gap-1.5">
+                    <i class="fa-solid fa-trash-can"></i>
+                    <span class="hidden sm:inline">Limpiar</span>
+                </button>
+                
+                <button onclick="saveToLocalStorage(true)" title="Guardar borrador" class="text-slate-300 hover:text-white hover:bg-steel-800 px-3 py-2 rounded-lg text-sm transition font-medium flex items-center gap-1.5">
+                    <i class="fa-solid fa-floppy-disk"></i>
+                    <span class="hidden sm:inline">Guardar</span>
+                </button>
+
+                <button onclick="triggerPrint()" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-semibold shadow-lg shadow-blue-600/30 transition flex items-center gap-2">
+                    <i class="fa-solid fa-file-pdf"></i>
+                    <span>Exportar / Imprimir PDF</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Contenido principal -->
+    <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 grid grid-cols-1 lg:grid-cols-12 gap-8">
+        
+        <!-- Panel Izquierdo: Formulario de edición (no-print) -->
+        <section class="no-print lg:col-span-5 space-y-6">
+            
+            <!-- Datos del Encabezado -->
+            <div class="bg-white rounded-xl p-5 shadow-sm border border-slate-200">
+                <div class="flex items-center justify-between mb-4 border-b pb-3 border-slate-100">
+                    <h2 class="font-bold text-slate-900 flex items-center gap-2">
+                        <i class="fa-solid fa-clipboard-list text-blue-600"></i>
+                        Información General
+                    </h2>
+                    <span class="text-xs font-semibold px-2.5 py-0.5 rounded bg-blue-50 text-blue-700">Encabezado</span>
+                </div>
+                
+                <form id="headerForm" class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">Nombre del Proyecto / Obra *</label>
+                        <input type="text" id="projName" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" placeholder="Ej: Construcción Torre Residencial Sur" oninput="updateReportHeader()">
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">Cliente / Empresa</label>
+                            <input type="text" id="clientName" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" placeholder="Ej: Inmobiliaria Horizonte S.A." oninput="updateReportHeader()">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">Ubicación / Dirección</label>
+                            <input type="text" id="location" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" placeholder="Ej: Av. Central #450, Madrid" oninput="updateReportHeader()">
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">Fecha y Hora</label>
+                            <input type="datetime-local" id="reportDate" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" onchange="updateReportHeader()">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">Inspector / Responsable</label>
+                            <input type="text" id="inspector" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" placeholder="Ej: Ing. Carlos Mendoza" oninput="updateReportHeader()">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">Notas / Observaciones Generales</label>
+                        <textarea id="generalNotes" rows="3" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" placeholder="Resumen del estado general de la inspección..." oninput="updateReportHeader()"></textarea>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Carga y Gestión de Fotos -->
+            <div class="bg-white rounded-xl p-5 shadow-sm border border-slate-200">
+                <div class="flex items-center justify-between mb-4 border-b pb-3 border-slate-100">
+                    <h2 class="font-bold text-slate-900 flex items-center gap-2">
+                        <i class="fa-solid fa-images text-blue-600"></i>
+                        Fotografías del Reporte
+                    </h2>
+                    <span id="photoCountBadge" class="text-xs font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-700">0 fotos</span>
+                </div>
+
+                <!-- Zona Drag & Drop -->
+                <div id="dropZone" class="border-2 border-dashed border-slate-300 hover:border-blue-500 bg-slate-50 hover:bg-blue-50/50 rounded-xl p-6 text-center transition cursor-pointer group">
+                    <input type="file" id="fileInput" multiple accept="image/*" class="hidden" onchange="handleFileSelect(event)">
+                    <div class="space-y-2">
+                        <div class="w-12 h-12 mx-auto bg-blue-100 group-hover:bg-blue-200 text-blue-600 rounded-full flex items-center justify-center transition">
+                            <i class="fa-solid fa-cloud-arrow-up text-xl"></i>
+                        </div>
+                        <div class="text-sm font-medium text-slate-700">
+                            Haz clic o arrastra fotos aquí
+                        </div>
+                        <p class="text-xs text-slate-400">Soporta JPG, PNG, WEBP (Múltiples archivos simultáneos)</p>
+                    </div>
+                </div>
+
+                <!-- Lista editable de fotos agregadas -->
+                <div id="photoEditorList" class="mt-6 space-y-4 max-h-[500px] overflow-y-auto pr-1">
+                    <!-- Se llena dinámicamente mediante JavaScript -->
+                    <div id="emptyState" class="text-center py-8 text-slate-400">
+                        <i class="fa-solid fa-camera text-3xl mb-2 text-slate-300"></i>
+                        <p class="text-sm">Aún no se han añadido fotografías.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Ajustes del Formato -->
+            <div class="bg-white rounded-xl p-5 shadow-sm border border-slate-200">
+                <h3 class="font-bold text-slate-900 mb-3 text-sm flex items-center gap-2">
+                    <i class="fa-solid fa-sliders text-blue-600"></i> Configuración de Maquetación
+                </h3>
+                <div class="grid grid-cols-2 gap-3">
+                    <label class="flex items-center space-x-2 border rounded-lg p-3 cursor-pointer hover:bg-slate-50 border-slate-200">
+                        <input type="radio" name="layoutGrid" value="2" checked onchange="changeLayout(2)" class="text-blue-600 focus:ring-blue-500">
+                        <span class="text-xs font-semibold text-slate-700">2 Fotos por página (Grande)</span>
+                    </label>
+                    <label class="flex items-center space-x-2 border rounded-lg p-3 cursor-pointer hover:bg-slate-50 border-slate-200">
+                        <input type="radio" name="layoutGrid" value="4" onchange="changeLayout(4)" class="text-blue-600 focus:ring-blue-500">
+                        <span class="text-xs font-semibold text-slate-700">4 Fotos por página (Compacto)</span>
+                    </label>
+                </div>
+            </div>
+
+        </section>
+
+        <!-- Panel Derecho: Vista previa tipo Documento A4 -->
+        <section class="lg:col-span-7 flex flex-col items-center">
+            
+            <div class="no-print w-full flex items-center justify-between mb-3 px-1">
+                <h2 class="text-sm font-bold text-slate-600 uppercase tracking-wider flex items-center gap-2">
+                    <i class="fa-solid fa-eye text-slate-400"></i> Vista Previa del Documento
+                </h2>
+                <span class="text-xs text-slate-400">Diseño Optimizado para A4 / PDF</span>
+            </div>
+
+            <!-- Contenedor Imprimible del Reporte -->
+            <div id="reportDocument" class="sheet bg-white text-slate-900 shadow-xl border border-slate-200 w-full max-w-[210mm] p-6 sm:p-8 rounded-sm">
+                
+                <!-- Encabezado Corporativo del Documento -->
+                <header class="border-b-2 border-steel-700 pb-4 mb-6">
+                    <div class="flex justify-between items-start mb-4">
+                        <div>
+                            <h1 id="viewProjName" class="text-xl sm:text-2xl font-bold text-steel-900 uppercase tracking-tight">NOMBRE DEL PROYECTO</h1>
+                            <p class="text-xs font-semibold text-blue-600 tracking-wider uppercase mt-0.5">INFORME DE INSPECCIÓN FOTOGRÁFICA</p>
+                        </div>
+                        <div class="text-right">
+                            <span class="text-xs bg-steel-900 text-white px-2.5 py-1 font-semibold rounded uppercase tracking-wider">REPORTE TÉCNICO</span>
+                        </div>
+                    </div>
+
+                    <!-- Datos Generales Grid -->
+                    <div class="grid grid-cols-2 gap-y-2 gap-x-4 text-xs bg-slate-50 p-3.5 rounded-lg border border-slate-200">
+                        <div>
+                            <span class="font-bold text-slate-500 block uppercase text-[10px]">Cliente / Empresa:</span>
+                            <span id="viewClient" class="text-slate-800 font-medium">--</span>
+                        </div>
+                        <div>
+                            <span class="font-bold text-slate-500 block uppercase text-[10px]">Ubicación:</span>
+                            <span id="viewLocation" class="text-slate-800 font-medium">--</span>
+                        </div>
+                        <div>
+                            <span class="font-bold text-slate-500 block uppercase text-[10px]">Inspector Responsable:</span>
+                            <span id="viewInspector" class="text-slate-800 font-medium">--</span>
+                        </div>
+                        <div>
+                            <span class="font-bold text-slate-500 block uppercase text-[10px]">Fecha / Hora:</span>
+                            <span id="viewDate" class="text-slate-800 font-medium">--</span>
+                        </div>
+                    </div>
+
+                    <!-- Notas Generales (si existen) -->
+                    <div id="viewNotesContainer" class="mt-3 text-xs hidden">
+                        <span class="font-bold text-slate-500 uppercase text-[10px] block">Observaciones Generales:</span>
+                        <p id="viewNotes" class="text-slate-700 italic bg-amber-50/60 border-l-2 border-amber-400 pl-2.5 py-1 mt-0.5 rounded-r"></p>
+                    </div>
+                </header>
+
+                <!-- Galería de Fotos del Documento -->
+                <div id="viewPhotoGrid" class="grid grid-cols-1 gap-6">
+                    <!-- Las fotografías renderizadas para el reporte aparecerán aquí -->
+                </div>
+
+                <!-- Pie de página del documento para impresión -->
+                <footer class="mt-8 pt-4 border-t border-slate-200 flex justify-between items-center text-[10px] text-slate-400">
+                    <div>
+                        <span>DIAR Arquitectura Publicitaria</span>
+                    </div>
+                    <div>
+                        <span>Página Documental</span>
+                    </div>
+                </footer>
+
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Notificación emergente (Toast) -->
+    <div id="toast" class="no-print fixed bottom-5 right-5 bg-steel-900 text-white px-4 py-3 rounded-xl shadow-2xl transition duration-300 opacity-0 translate-y-4 pointer-events-none flex items-center gap-2 z-50 text-sm">
+        <i id="toastIcon" class="fa-solid fa-circle-check text-green-400"></i>
+        <span id="toastMessage">Mensaje de notificación</span>
+    </div>
+
+    <!-- Script de lógica e interactividad -->
+    <script>
+        // Estado de la aplicación
+        let photos = [];
+        let photosPerPage = 2; // Default 2 por página
+
+        // Categorías disponibles con colores distintivos
+        const categories = {
+            'Avance de obra': 'bg-blue-100 text-blue-800 border-blue-200',
+            'Inspección': 'bg-emerald-100 text-emerald-800 border-emerald-200',
+            'Detalle técnico': 'bg-purple-100 text-purple-800 border-purple-200',
+            'Hallazgo/Anomalía': 'bg-rose-100 text-rose-800 border-rose-200',
+            'Seguridad (HSE)': 'bg-amber-100 text-amber-800 border-amber-200'
+        };
+
+        // Inicialización
+        window.addEventListener('DOMContentLoaded', () => {
+            // Establecer fecha por defecto si está vacía
+            const dateInput = document.getElementById('reportDate');
+            if(!dateInput.value) {
+                const now = new Date();
+                now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+                dateInput.value = now.toISOString().slice(0, 16);
+            }
+
+            // Cargar de LocalStorage si existe borrador
+            loadFromLocalStorage();
+
+            // Configurar Drag and Drop
+            setupDragAndDrop();
+
+            // Actualizar vista previa inicial
+            updateReportHeader();
+            renderPhotos();
+        });
+
+        // Configuración Drag and Drop
+        function setupDragAndDrop() {
+            const dropZone = document.getElementById('dropZone');
+            const fileInput = document.getElementById('fileInput');
+
+            dropZone.addEventListener('click', () => fileInput.click());
+
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                dropZone.addEventListener(eventName, preventDefaults, false);
+            });
+
+            function preventDefaults(e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+
+            ['dragenter', 'dragover'].forEach(eventName => {
+                dropZone.addEventListener(eventName, () => {
+                    dropZone.classList.add('border-blue-500', 'bg-blue-50/80');
+                }, false);
+            });
+
+            ['dragleave', 'drop'].forEach(eventName => {
+                dropZone.addEventListener(eventName, () => {
+                    dropZone.classList.remove('border-blue-500', 'bg-blue-50/80');
+                }, false);
+            });
+
+            dropZone.addEventListener('drop', (e) => {
+                const dt = e.dataTransfer;
+                const files = dt.files;
+                handleFiles(files);
+            }, false);
+        }
+
+        // Manejador de selección de archivos
+        function handleFileSelect(e) {
+            const files = e.target.files;
+            handleFiles(files);
+        }
+
+        function handleFiles(files) {
+            const fileArray = Array.from(files);
+            
+            fileArray.forEach(file => {
+                if (!file.type.startsWith('image/')) return;
+
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const newPhoto = {
+                        id: 'photo_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
+                        src: e.target.result,
+                        title: file.name.replace(/\.[^/.]+$/, ""),
+                        category: 'Avance de obra',
+                        description: ''
+                    };
+                    photos.push(newPhoto);
+                    renderPhotos();
+                    saveToLocalStorage();
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        // Actualiza el texto del encabezado en el documento PDF vista previa
+        function updateReportHeader() {
+            const projName = document.getElementById('projName').value.trim();
+            const clientName = document.getElementById('clientName').value.trim();
+            const location = document.getElementById('location').value.trim();
+            const reportDate = document.getElementById('reportDate').value;
+            const inspector = document.getElementById('inspector').value.trim();
+            const generalNotes = document.getElementById('generalNotes').value.trim();
+
+            document.getElementById('viewProjName').innerText = projName || 'NOMBRE DEL PROYECTO';
+            document.getElementById('viewClient').innerText = clientName || 'Sin especificar';
+            document.getElementById('viewLocation').innerText = location || 'Sin especificar';
+            document.getElementById('viewInspector').innerText = inspector || 'Sin especificar';
+            
+            if(reportDate) {
+                const dateObj = new Date(reportDate);
+                document.getElementById('viewDate').innerText = dateObj.toLocaleString('es-ES', { 
+                    dateStyle: 'medium', 
+                    timeStyle: 'short' 
+                });
+            } else {
+                document.getElementById('viewDate').innerText = 'Sin especificar';
+            }
+
+            const notesContainer = document.getElementById('viewNotesContainer');
+            if (generalNotes) {
+                document.getElementById('viewNotes').innerText = generalNotes;
+                notesContainer.classList.remove('hidden');
+            } else {
+                notesContainer.classList.add('hidden');
+            }
+
+            saveToLocalStorage();
+        }
+
+        // Cambiar diseño de cuadrícula (2 o 4 fotos por página)
+        function changeLayout(cols) {
+            photosPerPage = cols;
+            renderPhotos();
+        }
+
+        // Renderizado dinámico de la lista de edición y del documento impreso
+        function renderPhotos() {
+            const editorList = document.getElementById('photoEditorList');
+            const viewGrid = document.getElementById('viewPhotoGrid');
+            const photoCountBadge = document.getElementById('photoCountBadge');
+
+            photoCountBadge.innerText = `${photos.length} ${photos.length === 1 ? 'foto' : 'fotos'}`;
+
+            // Renderizar Lista Editable (Panel Izquierdo)
+            if (photos.length === 0) {
+                editorList.innerHTML = `
+                    <div class="text-center py-8 text-slate-400">
+                        <i class="fa-solid fa-camera text-3xl mb-2 text-slate-300"></i>
+                        <p class="text-sm">Aún no se han añadido fotografías.</p>
+                    </div>`;
+            } else {
+                editorList.innerHTML = photos.map((photo, index) => `
+                    <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-200 flex flex-col sm:flex-row gap-3 relative group">
+                        <div class="w-full sm:w-28 h-28 bg-slate-200 rounded-lg overflow-hidden flex-shrink-0 relative">
+                            <img src="${photo.src}" class="w-full h-full object-cover" alt="Preview">
+                            <span class="absolute top-1 left-1 bg-black/70 text-white text-[10px] font-bold px-1.5 py-0.5 rounded">#${index + 1}</span>
+                        </div>
+                        <div class="flex-1 space-y-2">
+                            <div class="flex items-center gap-2">
+                                <input type="text" value="${escapeHtml(photo.title)}" 
+                                    onchange="updatePhotoData('${photo.id}', 'title', this.value)"
+                                    placeholder="Título / Etiqueta" 
+                                    class="w-full px-2.5 py-1 text-xs border border-slate-300 rounded font-semibold focus:ring-1 focus:ring-blue-500">
+                            </div>
+                            
+                            <select onchange="updatePhotoData('${photo.id}', 'category', this.value)" class="w-full px-2 py-1 text-xs border border-slate-300 rounded bg-white font-medium text-slate-700">
+                                ${Object.keys(categories).map(cat => `
+                                    <option value="${cat}" ${photo.category === cat ? 'selected' : ''}>${cat}</option>
+                                `).join('')}
+                            </select>
+
+                            <textarea onchange="updatePhotoData('${photo.id}', 'description', this.value)" 
+                                placeholder="Descripción u observación del hallazgo..." 
+                                rows="2" 
+                                class="w-full px-2.5 py-1 text-xs border border-slate-300 rounded focus:ring-1 focus:ring-blue-500 resize-none">${escapeHtml(photo.description)}</textarea>
+                        </div>
+                        <div class="flex sm:flex-col justify-between sm:justify-start gap-1">
+                            <button onclick="movePhoto(${index}, -1)" ${index === 0 ? 'disabled class="opacity-30 cursor-not-allowed text-slate-400 p-1"' : 'class="text-slate-500 hover:text-blue-600 p-1"'} title="Subir">
+                                <i class="fa-solid fa-arrow-up text-xs"></i>
+                            </button>
+                            <button onclick="movePhoto(${index}, 1)" ${index === photos.length - 1 ? 'disabled class="opacity-30 cursor-not-allowed text-slate-400 p-1"' : 'class="text-slate-500 hover:text-blue-600 p-1"'} title="Bajar">
+                                <i class="fa-solid fa-arrow-down text-xs"></i>
+                            </button>
+                            <button onclick="removePhoto('${photo.id}')" class="text-slate-400 hover:text-rose-600 p-1 transition" title="Eliminar">
+                                <i class="fa-solid fa-trash-can text-xs"></i>
+                            </button>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            // Renderizar Vista Previa del Documento (Panel Derecho)
+            // Ajuste de clases de grid según configuración (2 o 4 fotos por hoja)
+            if (photosPerPage === 2) {
+                viewGrid.className = "grid grid-cols-1 gap-6";
+            } else {
+                viewGrid.className = "grid grid-cols-2 gap-4";
+            }
+
+            if (photos.length === 0) {
+                viewGrid.innerHTML = `
+                    <div class="col-span-full border-2 border-dashed border-slate-200 rounded-lg p-12 text-center text-slate-400">
+                        <i class="fa-solid fa-images text-4xl mb-3 text-slate-300"></i>
+                        <p class="text-sm font-medium">No hay elementos fotográficos para mostrar en el reporte.</p>
+                        <p class="text-xs text-slate-400 mt-1">Cargue imágenes desde el panel izquierdo.</p>
+                    </div>`;
+            } else {
+                viewGrid.innerHTML = photos.map((photo, index) => {
+                    const badgeStyle = categories[photo.category] || 'bg-slate-100 text-slate-800 border-slate-200';
+                    const isCompact = photosPerPage === 4;
+
+                    return `
+                    <div class="avoid-break bg-white border border-slate-200 rounded-lg overflow-hidden flex flex-col shadow-sm">
+                        <!-- Img container con aspect ratio fijo -->
+                        <div class="${isCompact ? 'h-40' : 'h-64'} w-full bg-slate-900 relative overflow-hidden flex items-center justify-center">
+                            <img src="${photo.src}" class="max-h-full max-w-full object-contain mx-auto" alt="${escapeHtml(photo.title)}">
+                            <span class="absolute top-2 left-2 bg-slate-900/80 backdrop-blur-sm text-white text-[10px] font-mono px-2 py-0.5 rounded border border-white/20">
+                                Foto #${index + 1}
+                            </span>
+                        </div>
+                        
+                        <!-- Contenido descriptivo -->
+                        <div class="p-3 flex-1 flex flex-col justify-between bg-white">
+                            <div>
+                                <div class="flex items-start justify-between gap-2 mb-1.5">
+                                    <h4 class="font-bold text-slate-900 ${isCompact ? 'text-xs' : 'text-sm'} leading-snug">
+                                        ${photo.title ? escapeHtml(photo.title) : 'Sin título'}
+                                    </h4>
+                                    <span class="text-[9px] font-bold px-2 py-0.5 rounded border uppercase tracking-wider ${badgeStyle} shrink-0">
+                                        ${photo.category}
+                                    </span>
+                                </div>
+                                <p class="text-slate-600 ${isCompact ? 'text-[10px] line-clamp-3' : 'text-xs'} leading-relaxed">
+                                    ${photo.description ? escapeHtml(photo.description) : '<span class="italic text-slate-400">Sin observaciones registradas.</span>'}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    `;
+                }).join('');
+            }
+        }
+
+        // Actualizar datos de foto individual
+        function updatePhotoData(id, field, value) {
+            const photo = photos.find(p => p.id === id);
+            if (photo) {
+                photo[field] = value;
+                renderPhotos();
+                saveToLocalStorage();
+            }
+        }
+
+        // Reordenar fotos
+        function movePhoto(index, direction) {
+            const newIndex = index + direction;
+            if (newIndex >= 0 && newIndex < photos.length) {
+                const temp = photos[index];
+                photos[index] = photos[newIndex];
+                photos[newIndex] = temp;
+                renderPhotos();
+                saveToLocalStorage();
+            }
+        }
+
+        // Eliminar foto
+        function removePhoto(id) {
+            photos = photos.filter(p => p.id !== id);
+            renderPhotos();
+            saveToLocalStorage();
+            showToast("Fotografía eliminada", "info");
+        }
+
+        // Disparar Impresión / Exportación PDF
+        function triggerPrint() {
+            if (photos.length === 0) {
+                showToast("Añada al menos una foto antes de exportar", "warning");
+                return;
+            }
+            window.print();
+        }
+
+        // Almacenamiento local (localStorage)
+        function saveToLocalStorage(manual = false) {
+            const data = {
+                projName: document.getElementById('projName').value,
+                clientName: document.getElementById('clientName').value,
+                location: document.getElementById('location').value,
+                reportDate: document.getElementById('reportDate').value,
+                inspector: document.getElementById('inspector').value,
+                generalNotes: document.getElementById('generalNotes').value,
+                photos: photos
+            };
+            try {
+                localStorage.setItem('reporte_fotografico_draft', JSON.stringify(data));
+                if (manual) showToast("Borrador guardado con éxito", "success");
+            } catch(e) {
+                if(manual) showToast("Error al guardar (límite de memoria superado)", "error");
+            }
+        }
+
+        function loadFromLocalStorage() {
+            const saved = localStorage.getItem('reporte_fotografico_draft');
+            if (saved) {
+                try {
+                    const data = JSON.parse(saved);
+                    document.getElementById('projName').value = data.projName || '';
+                    document.getElementById('clientName').value = data.clientName || '';
+                    document.getElementById('location').value = data.location || '';
+                    if(data.reportDate) document.getElementById('reportDate').value = data.reportDate;
+                    document.getElementById('inspector').value = data.inspector || '';
+                    document.getElementById('generalNotes').value = data.generalNotes || '';
+                    photos = data.photos || [];
+                } catch(e) {
+                    console.error("Error al cargar borrador", e);
+                }
+            }
+        }
+
+        function clearDraft() {
+            if (confirm("¿Está seguro de que desea borrar todos los datos del formulario y las fotografías?")) {
+                localStorage.removeItem('reporte_fotografico_draft');
+                document.getElementById('headerForm').reset();
+                photos = [];
+                updateReportHeader();
+                renderPhotos();
+                showToast("Se ha limpiado el informe completamente", "info");
+            }
+        }
+
+        // Auxiliar para escapar caracteres HTML
+        function escapeHtml(text) {
+            if (!text) return '';
+            return text
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
+        // Mostrar Toast
+        function showToast(message, type = "success") {
+            const toast = document.getElementById('toast');
+            const toastMessage = document.getElementById('toastMessage');
+            const toastIcon = document.getElementById('toastIcon');
+
+            toastMessage.innerText = message;
+
+            if (type === "success") {
+                toastIcon.className = "fa-solid fa-circle-check text-emerald-400";
+            } else if (type === "warning") {
+                toastIcon.className = "fa-solid fa-triangle-exclamation text-amber-400";
+            } else if (type === "error") {
+                toastIcon.className = "fa-solid fa-circle-xmark text-rose-400";
+            } else {
+                toastIcon.className = "fa-solid fa-circle-info text-blue-400";
+            }
+
+            toast.classList.remove('opacity-0', 'translate-y-4', 'pointer-events-none');
+            
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'translate-y-4', 'pointer-events-none');
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
